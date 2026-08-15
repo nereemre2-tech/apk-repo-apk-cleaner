@@ -36,4 +36,4 @@
 - [x] İşlem öncesi AdShield etki özeti ve kullanıcı onay ekranını uygulama
 - [x] Önizleme-onay akışını üretim APK’da doğrulayıp GitHub sürümünü güncelleme
 - [x] İmzalama sonrasında görünen bilinmeyen APK işleme hatasının nedenini teşhis etme
-- [ ] İmzalama-sonrası hata düzeltmesini üretim APK’sında doğrulayıp yayımlama
+- [x] İmzalama-sonrası hata düzeltmesini üretim APK’sında doğrulayıp yayımlama

@@ -38,4 +38,4 @@
 - [x] İmzalama sonrasında görünen bilinmeyen APK işleme hatasının nedenini teşhis etme
 - [x] İmzalama-sonrası hata düzeltmesini üretim APK’sında doğrulayıp yayımlama
 - [x] Kapsamlı APK işlemede manifest geri alma sonrasındaki imzalama zaman aşımını düzeltme
-- [ ] Uzun imzalama düzeltmesini üretim APK’sında doğrulayıp yayımlama
+- [x] Uzun imzalama düzeltmesini üretim APK’sında doğrulayıp yayımlama

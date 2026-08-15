@@ -11,6 +11,6 @@
 - [x] Sağlanan HTML/CSS ve ikon referanslarını Android arayüz tasarımına uyarlama
 - [x] APK işleme sırasında uygulamanın kapanmasına neden olan hata akışını güçlendirme
 - [x] Güncellenmiş bağımsız Android APK’yı derleyip imza ve hata senaryolarını doğrulama
-- [ ] Yayınlanacak kaynakları ve gizli/üretilmiş dosyaları genel depo için hazırlama
-- [ ] `apk-repo-apk-cleaner` adlı public GitHub deposunu oluşturup projeyi yükleme
-- [ ] Genel GitHub deposundaki dosya ve erişim durumunu doğrulama
+- [x] Yayınlanacak kaynakları ve gizli/üretilmiş dosyaları genel depo için hazırlama
+- [x] `apk-repo-apk-cleaner` adlı public GitHub deposunu oluşturup projeyi yükleme
+- [x] Genel GitHub deposundaki dosya ve erişim durumunu doğrulama

@@ -49,6 +49,7 @@ class MainActivity : Activity() {
   private var patchAds = true
   private var stripDebug = false
   private var adCleaningMode = AdCleaningMode.LEGACY
+  private var adShieldPreviewVisible = false
   private var busy = false
   private var appVisible = false
   private var cancellationRequested = false
@@ -104,6 +105,7 @@ class MainActivity : Activity() {
     when {
       analysis == null -> { stepper(1); dropzone() }
       busy -> working()
+      adShieldPreviewVisible -> adShieldPreviewScreen()
       else -> analysisScreen()
     }
     processing?.let { resultScreen(it) }
@@ -180,9 +182,9 @@ class MainActivity : Activity() {
       addView(label(if (report.split) "${report.modules.size} modül tek APK çıktısı için birleştirilecektir. Modül seçimi otomatik uygulanır." else "Paket yerel arşiv yapısı üzerinden güvenli biçimde tarandı.", 12, COLOR_MUTED))
     }
     heading("Reklam temizleme motoru", 20, COLOR_INK)
-    operation("◈", "AdShield — yeni korumalı mod", "Çifte kanıtla doğrulanan ağları yalnızca güvenli DEX ve manifest kurallarıyla nötralize eder; asset/kütüphane silmez.", patchAds && adCleaningMode == AdCleaningMode.AD_SHIELD, report.detections.isNotEmpty()) { patchAds = true; adCleaningMode = AdCleaningMode.AD_SHIELD; render() }
-    operation("✦", "Klasik reklam temizleme", "Mevcut DEX, manifest ve seçilen kapsam profiliyle klasik temizleme motorunu kullanır.", patchAds && adCleaningMode == AdCleaningMode.LEGACY, report.detections.isNotEmpty()) { patchAds = true; adCleaningMode = AdCleaningMode.LEGACY; render() }
-    if (report.split) operation("⇄", "Tek APK oluştur", "Split modülleri tek kurulabilir APK’da birleştirir; reklam yaması isteğe bağlıdır.", !patchAds, true) { patchAds = false; render() }
+    operation("◈", "AdShield — yeni korumalı mod", "Çifte kanıtla doğrulanan ağları yalnızca güvenli DEX ve manifest kurallarıyla nötralize eder; asset/kütüphane silmez.", patchAds && adCleaningMode == AdCleaningMode.AD_SHIELD, report.adShieldPreview.verified.isNotEmpty()) { patchAds = true; adCleaningMode = AdCleaningMode.AD_SHIELD; adShieldPreviewVisible = false; render() }
+    operation("✦", "Klasik reklam temizleme", "Mevcut DEX, manifest ve seçilen kapsam profiliyle klasik temizleme motorunu kullanır.", patchAds && adCleaningMode == AdCleaningMode.LEGACY, report.detections.isNotEmpty()) { patchAds = true; adCleaningMode = AdCleaningMode.LEGACY; adShieldPreviewVisible = false; render() }
+    if (report.split) operation("⇄", "Tek APK oluştur", "Split modülleri tek kurulabilir APK’da birleştirir; reklam yaması isteğe bağlıdır.", !patchAds, true) { patchAds = false; adShieldPreviewVisible = false; render() }
     if (report.detections.isEmpty()) {
       card(COLOR_NOTICE, 15) {
         addView(label("Bilinen reklam ağı algılanmadı", 14, COLOR_NOTICE_TEXT, true))
@@ -208,6 +210,42 @@ class MainActivity : Activity() {
     option("DEX hata ayıklama verisi", "Kaynak, satır ve yerel değişken kayıtlarını temizler.", stripDebug, true) { stripDebug = it }
     val caption = if (report.split && !patchAds && !stripDebug) "APK oluşturmayı başlat" else if (patchAds && adCleaningMode == AdCleaningMode.AD_SHIELD) "AdShield işlemini başlat" else if (patchAds) "Temizlemeyi başlat" else "Paketi yeniden imzala"
     actionButton(caption, COLOR_LIME, !patchAds || report.detections.isNotEmpty()) { startProcessing() }
+  }
+
+  private fun adShieldPreviewScreen() {
+    val report = analysis ?: return
+    val preview = report.adShieldPreview
+    stepper(3)
+    gap(15)
+    badge("◈  ADSHIELD İŞLEM ÖNCESİ ETKİ ÖZETİ")
+    heading("Bu SDK’lar etkilenecek", 22, COLOR_INK)
+    paragraph("İşlem başlamadan önce yalnızca çifte kanıt kuralını geçen SDK’lar listelenir. Bu özet, güvenli modun planıdır; paket henüz değiştirilmedi.")
+    card(COLOR_SELECTED, 16) {
+      addView(label("PLANLANAN KAPSAM", 10, COLOR_GREEN, true))
+      addView(label("${preview.verified.size} doğrulanmış SDK · ${preview.affectedDexCount} DEX dosyası", 16, COLOR_INK, true))
+      addView(label(if (preview.manifestWillBePatched) "Uygun reklam manifest izinleri ve metadata kayıtları da düzenlenecek." else "Manifestte doğrulanmış reklam kaydı bulunmadı; yalnızca güvenli DEX işlemi planlandı.", 12, COLOR_MUTED))
+    }
+    preview.verified.forEach { impact ->
+      gap(9)
+      card(COLOR_SURFACE, 16) {
+        addView(label(impact.label, 15, COLOR_INK, true))
+        addView(label("${impact.references} DEX referansı · ${impact.dexFiles.size} etkilenen DEX", 11, COLOR_GREEN, true))
+        addView(label("DEX: ${impact.dexFiles.take(3).joinToString(", ")}${if (impact.dexFiles.size > 3) " +${impact.dexFiles.size - 3}" else ""}", 11, COLOR_MUTED))
+        addView(label(if (impact.manifestReferences > 0) "Manifest: ${impact.manifestReferences} reklam yapılandırma işareti düzenlenecek" else "Manifest: bu SDK için değişiklik planlanmadı", 11, COLOR_MUTED))
+      }
+    }
+    if (preview.rejectedDetectedCount > 0) {
+      card(COLOR_NOTICE, 15) {
+        addView(label("${preview.rejectedDetectedCount} algılanan SDK korunuyor", 14, COLOR_NOTICE_TEXT, true))
+        addView(label("Bu işaretler çifte kanıt eşiğini geçmediği için uygulama kararlılığı adına değiştirilmez.", 12, COLOR_NOTICE_TEXT))
+      }
+    }
+    card(COLOR_WARNING, 15) {
+      addView(label("KORUMA SINIRLARI", 10, COLOR_WARNING_TEXT, true))
+      addView(label("AdShield asset veya yerel kütüphane silmez. Belirsiz çağrılar ve doğrulanmamış SDK’lar pakette bırakılır. Bu nedenle uygulama açılabilirliğini önceleyen korumacı bir temizlik uygulanır.", 12, COLOR_WARNING_TEXT))
+    }
+    actionButton("Geri dön ve seçimi değiştir", COLOR_GREEN, true) { adShieldPreviewVisible = false; render() }
+    actionButton("Bu etkiyle AdShield işlemini başlat", COLOR_LIME, preview.verified.isNotEmpty()) { adShieldPreviewVisible = false; beginProcessing() }
   }
 
   private fun operation(symbol: String, title: String, detail: String, selected: Boolean, enabled: Boolean, action: () -> Unit) {
@@ -336,6 +374,15 @@ class MainActivity : Activity() {
   }
 
   private fun startProcessing() {
+    if (patchAds && adCleaningMode == AdCleaningMode.AD_SHIELD) {
+      adShieldPreviewVisible = true
+      render()
+      return
+    }
+    beginProcessing()
+  }
+
+  private fun beginProcessing() {
     val file = selectedFile ?: return
     busy = true
     processing = null

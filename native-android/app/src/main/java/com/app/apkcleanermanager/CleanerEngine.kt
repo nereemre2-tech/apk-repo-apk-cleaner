@@ -34,6 +34,7 @@ data class Analysis(
   val detections: List<Detection>,
   val split: Boolean,
   val modules: List<String>,
+  val adShieldPreview: AdShieldPreview,
 )
 
 data class ProcessingResult(
@@ -73,7 +74,7 @@ class CleanerEngine(private val context: Context) {
     val detected = scan.detectionCounts.entries.mapNotNull { (id, count) ->
       profiles.firstOrNull { it.id == id }?.let { Detection(id, it.label, count) }
     }.sortedByDescending { it.references }
-    return Analysis(displayName, input.length(), sha256(input), scan.dexRows.size, detected, isSplit, modules)
+    return Analysis(displayName, input.length(), sha256(input), scan.dexRows.size, detected, isSplit, modules, AdShield.preview(profiles, scan.detectionCounts, scan.manifestHits, scan.dexRows))
   }
 
   fun process(

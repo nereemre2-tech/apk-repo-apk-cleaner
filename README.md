@@ -9,14 +9,14 @@
 | Kaynak | Bağlantı |
 |---|---|
 | Güncel APK sürümü | [GitHub Releases](https://github.com/nereemre2-tech/apk-repo-apk-cleaner/releases/latest) |
-| Doğrudan APK indirme | [ARM64 APK](https://github.com/nereemre2-tech/apk-repo-apk-cleaner/releases/latest/download/APK-Cleaner-Manager-v1.5.0-arm64-release.apk) |
+| Doğrudan APK indirme | [ARM64 APK](https://github.com/nereemre2-tech/apk-repo-apk-cleaner/releases/latest/download/APK-Cleaner-Manager-v1.6.0-arm64-release.apk) |
 | Android kurulum rehberi | [INSTALL.md](INSTALL.md) |
 | Üretim imzalama yapılandırması | [PRODUCTION_SIGNING.md](PRODUCTION_SIGNING.md) |
 | Etkileşimli tarayıcı önizlemesi | [docs/index.html](docs/index.html) |
 
-Sürüm **1.5.0**, Android 8.0 (API 26) ve yeni ARM64-v8a cihazları hedefler. Kurulum, yeniden imzalama sınırları ve yetkili kullanım açıklamaları için [kurulum rehberini](INSTALL.md) izleyin.
+Sürüm **1.6.0**, Android 8.0 (API 26) ve yeni ARM64-v8a cihazları hedefler. Kurulum, yeniden imzalama sınırları ve yetkili kullanım açıklamaları için [kurulum rehberini](INSTALL.md) izleyin.
 
-## 1.5.0 Yenilikleri
+## 1.6.0 Yenilikleri
 
 Android uygulamasının işlem ekranı artık gerçek paket adımlarından gelen **canlı ilerleme yüzdesini** ve son sekiz aşama olayını içeren **işlem günlüğünü** gösterir. Split birleştirme, paket tarama, her DEX yaması, manifest düzenlemesi, paketleme ve imzalama aşamalarının her biri ekrana ayrı durum satırı olarak yansır.
 
@@ -29,6 +29,8 @@ Araçlar ana kullanıcı arayüzünden ayrı `:apk_engine` Android sürecinde ç
 Uygulama arka plandayken işlem tamamlanır, iptal edilir veya hata oluşursa yerel cihaz bildirimi gönderilir. Android 13+ cihazlarda ilk açılışta bildirim izni istenir; bu izin verilmezse işlem geçmişi yine tutulur ancak sistem bildirimi gösterilmez.
 
 Yeni **AdShield** seçeneği klasik reklam motorundan ayrı çalışır. Bir SDK ancak DEX içinde en az iki referansla birlikte manifest işareti veya iki ayrı DEX dosyasında görülürse yama kapsamına alınır. Mod, belirsiz SDK’ları, uygulama sınıflarını, asset ve yerel kütüphaneleri silmez; bu nedenle "tüm reklamları garantiyle kaldırma" iddiası yerine uygulamanın açılabilirliğini önceleyen doğrulanmış kapsam uygular.
+
+AdShield işlemi artık başlamadan önce ayrı bir **etki özeti ve onay ekranı** gösterir. Bu ekranda değiştirilecek doğrulanmış SDK’lar, DEX referans sayıları, etkilenecek DEX dosyaları ve planlanan manifest düzenlemeleri görünür. Çifte kanıt eşiğini geçmeyen SDK’lar ayrıca korunacak olarak belirtilir; kullanıcı onay vermeden paket işleme başlamaz.
 
 ## Özellikler
 
@@ -46,8 +48,8 @@ Yeni **AdShield** seçeneği klasik reklam motorundan ayrı çalışır. Bir SDK
 | Konum | Sorumluluk |
 |---|---|
 | `native-android/` | Bağımsız ve düşük bağımlılıklı Android Gradle projesi |
-| `native-android/app/src/main/java/.../MainActivity.kt` | Koyu stüdyo arayüzü, paket seçimi, profil seçimi, canlı yüzde ve günlük görünümü |
-| `native-android/app/src/main/java/.../CleanerEngine.kt` | Analiz, split birleştirme, DEX/manifest düzenleme, paket yeniden yazma ve çıktı akışı |
+| `native-android/app/src/main/java/.../MainActivity.kt` | Koyu stüdyo arayüzü, paket seçimi, profil seçimi, AdShield etki özeti/onayı, canlı yüzde ve günlük görünümü |
+| `native-android/app/src/main/java/.../CleanerEngine.kt` | Analiz, AdShield etki özeti verisi, split birleştirme, DEX/manifest düzenleme, paket yeniden yazma ve çıktı akışı |
 | `native-android/app/src/main/java/.../IsolatedToolService.kt` | Dış araçları `:apk_engine` sürecinde çalıştıran korumalı servis ve zaman aşımı katmanı |
 | `native-android/app/src/main/java/.../ProcessingHistory.kt` | İşlem sonuçlarını cihazdaki `SharedPreferences` alanında saklayan geçmiş deposu |
 | `native-android/app/src/main/java/.../ProcessingNotifier.kt` | Arka planda işlem sonucu için yerel Android bildirimleri |
@@ -67,7 +69,7 @@ cd native-android
 ./gradlew :app:assembleRelease
 ```
 
-Başarılı derlemede APK `native-android/app/build/outputs/apk/release/app-release.apk` konumunda oluşur. Dağıtım dosyası proje köküne `APK-Cleaner-Manager-v1.5.0-arm64-release.apk` adıyla kopyalanır ve GitHub Release varlığı olarak yayımlanır.
+Başarılı derlemede APK `native-android/app/build/outputs/apk/release/app-release.apk` konumunda oluşur. Dağıtım dosyası proje köküne `APK-Cleaner-Manager-v1.6.0-arm64-release.apk` adıyla kopyalanır ve GitHub Release varlığı olarak yayımlanır.
 
 Uygulama içindeki çıktı APK’larını imzalamak için kullanılan JKS dosyası **geliştirme amaçlıdır**. Üretim dağıtımında kendi imzalama anahtarınızı kullanın.
 

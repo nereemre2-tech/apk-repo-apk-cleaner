@@ -25,3 +25,6 @@
 - [x] Yeni akışları derleyip doğrulama ve GitHub deposuna gönderme
 - [x] Proje için özel üretim keystore anahtarı oluşturma ve gizli dosya olarak yapılandırma
 - [x] Üretim imzalı APK’yı özel keystore sertifikasıyla doğrulama
+- [x] Tamamlanan, iptal edilen ve hata veren işlemler için kalıcı geçmiş kaydı ekleme
+- [x] Geçmiş ekranında işlem günlüklerini görüntüleme ve TXT olarak dışa aktarma eylemi ekleme
+- [x] Geçmiş yönetimini üretim imzalı APK’da doğrulayıp GitHub sürümünü güncelleme

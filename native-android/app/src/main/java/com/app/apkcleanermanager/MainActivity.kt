@@ -25,10 +25,14 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.core.content.FileProvider
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.concurrent.Executors
 
 class MainActivity : Activity() {
   private val engine by lazy { CleanerEngine(this) }
+  private val history by lazy { ProcessingHistory(this) }
   private val worker = Executors.newSingleThreadExecutor()
   private lateinit var container: LinearLayout
   private var selectedFile: File? = null
@@ -48,6 +52,7 @@ class MainActivity : Activity() {
   private var progressMessageView: TextView? = null
   private var progressLogView: TextView? = null
   private var cancelButton: Button? = null
+  private var historyVisible = false
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
@@ -65,6 +70,10 @@ class MainActivity : Activity() {
     scroll.addView(container)
     setContentView(scroll)
     topbar()
+    if (historyVisible) {
+      historyScreen()
+      return
+    }
     gap(22)
     badge("◆  YEREL ANDROID PAKET İŞLEME STÜDYOSU")
     heading("Paketini bırak.", 32, COLOR_INK)
@@ -97,7 +106,15 @@ class MainActivity : Activity() {
     val names = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(10), 0, 0, 0) }
     names.addView(label("APK Cleaner", 15, COLOR_INK, true)); names.addView(label("STUDIO", 9, COLOR_MUTED, true))
     bar.addView(names, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-    bar.addView(label("●  HAZIR", 10, COLOR_GREEN, true))
+    bar.addView(Button(this).apply {
+      text = "GEÇMİŞ"
+      textSize = 10f
+      typeface = Typeface.DEFAULT_BOLD
+      isAllCaps = false
+      setTextColor(COLOR_GREEN)
+      background = shape(COLOR_SOFT, COLOR_LINE, 9)
+      setOnClickListener { historyVisible = true; render() }
+    }, LinearLayout.LayoutParams(dp(78), dp(38)))
     add(bar)
   }
 
@@ -226,6 +243,43 @@ class MainActivity : Activity() {
     actionButton("İşlem günlüğünü TXT olarak paylaş", COLOR_GREEN, true) { exportProcessingLog() }
   }
 
+  private fun historyScreen() {
+    gap(22)
+    badge("◆  BU CİHAZDAKİ İŞLEM KAYITLARI")
+    heading("İşlem geçmişi", 28, COLOR_INK)
+    paragraph("Son 25 işlem, günlük satırları ve varsa oluşturulan APK çıktısı cihazda saklanır.")
+    actionButton("Ana ekrana dön", COLOR_LIME, true) { historyVisible = false; render() }
+    val entries = history.entries()
+    if (entries.isEmpty()) {
+      card(COLOR_SOFT, 18) {
+        addView(label("Henüz işlem kaydı yok", 16, COLOR_INK, true))
+        addView(label("Bir paket işlediğinizde tamamlanma, iptal veya hata bilgisi burada görünür.", 12, COLOR_MUTED))
+      }
+      return
+    }
+    entries.forEach { entry ->
+      val statusColor = when (entry.status) {
+        "Tamamlandı" -> COLOR_GREEN
+        "İptal edildi" -> COLOR_WARNING_TEXT
+        else -> Color.rgb(255, 152, 152)
+      }
+      card(COLOR_SOFT, 16) {
+        addView(label(entry.status.uppercase(Locale("tr", "TR")), 10, statusColor, true))
+        addView(label(entry.sourceName, 15, COLOR_INK, true))
+        addView(label("${formatTime(entry.timestamp)} · ${entry.profile} profil", 11, COLOR_MUTED))
+        if (entry.summary.isNotBlank()) addView(label(entry.summary, 11, COLOR_MUTED))
+        if (entry.logs.isNotEmpty()) addView(label(entry.logs.takeLast(2).joinToString("\n"), 10, COLOR_CONSOLE).apply { typeface = Typeface.MONOSPACE; setPadding(0, dp(8), 0, 0) })
+      }
+      actionButton("Günlüğü paylaş: ${entry.sourceName.take(28)}", COLOR_GREEN, true) { exportHistoryLog(entry) }
+      if (entry.outputPath != null && File(entry.outputPath).isFile) {
+        actionButton("APK çıktısını paylaş", COLOR_LIME, true) { share(File(entry.outputPath)) }
+      }
+    }
+    actionButton("Geçmiş listesini temizle", COLOR_WARNING_TEXT, true) {
+      AlertDialog.Builder(this).setTitle("Geçmiş temizlensin mi?").setMessage("Yalnızca liste silinir; APK ve TXT dosyaları cihazda kalır.").setNegativeButton("Vazgeç", null).setPositiveButton("Temizle") { _, _ -> history.clear(); render() }.show()
+    }
+  }
+
   private fun communityCard() {
     val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; background = shape(COLOR_SURFACE, COLOR_LINE, 16); setPadding(dp(12), dp(12), dp(12), dp(12)) }
     val icon = ImageView(this).apply { setImageResource(R.drawable.apk_repo_icon); scaleType = ImageView.ScaleType.CENTER_CROP; background = shape(COLOR_SOFT, COLOR_GREEN, 12) }
@@ -275,15 +329,23 @@ class MainActivity : Activity() {
         val output = engine.process(file, sourceName, selectedProfile, patchAds, stripDebug) { update ->
           runOnUiThread { updateProcessingViews(update.percent, update.message) }
         }
-        runOnUiThread { processing = output; busy = false; render() }
+        runOnUiThread {
+          processing = output
+          busy = false
+          recordHistory("Tamamlandı", "${output.dexPatched} DEX · ${output.manifestPatched} manifest · ${output.removedFiles} dosya değişikliği", output.output)
+          render()
+        }
       } catch (error: Throwable) {
         runOnUiThread {
           busy = false
           if (engine.wasCancellationRequested()) {
             processingLogs += "■ İşlem kullanıcı tarafından iptal edildi; geçici dosyalar temizlendi"
+            recordHistory("İptal edildi", "Çıktı oluşturulmadı; orijinal paket korundu.", null)
             render()
             showError("İşlem iptal edildi", "Çıktı APK oluşturulmadı. Orijinal paket korunmuştur.")
           } else {
+            processingLogs += "■ Hata: ${error.message ?: "Bilinmeyen hata"}"
+            recordHistory("Hata", error.message ?: "Bilinmeyen hata", null)
             render()
             showError("İşlem tamamlanamadı", error.message)
           }
@@ -329,6 +391,27 @@ class MainActivity : Activity() {
     }
   }
 
+  private fun exportHistoryLog(entry: ProcessingHistoryEntry) {
+    try {
+      val folder = File(getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), "APK Cleaner/Logs").apply { mkdirs() }
+      val base = entry.sourceName.substringBeforeLast('.', "package").replace(Regex("[^A-Za-z0-9._-]+"), "_")
+      val report = File(folder, "$base-gecmis-gunlugu-${entry.id}.txt")
+      report.writeText(buildString {
+        appendLine("APK Cleaner Manager — Geçmiş İşlem Günlüğü")
+        appendLine("Kaynak paket: ${entry.sourceName}")
+        appendLine("Profil: ${entry.profile}")
+        appendLine("Durum: ${entry.status}")
+        appendLine("Zaman: ${formatTime(entry.timestamp)}")
+        appendLine()
+        entry.logs.forEach(::appendLine)
+      })
+      val uri = FileProvider.getUriForFile(this, "com.app.apkcleanermanager.files", report)
+      startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_STREAM, uri); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }, "Geçmiş günlüğünü kaydet veya paylaş"))
+    } catch (error: Throwable) {
+      showError("Geçmiş günlüğü dışa aktarılamadı", error.message)
+    }
+  }
+
   private fun updateProcessingViews(percent: Int, message: String) {
     processingPercent = percent.coerceAtLeast(processingPercent).coerceAtMost(100)
     processingMessage = message
@@ -346,6 +429,13 @@ class MainActivity : Activity() {
       startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "application/vnd.android.package-archive"; putExtra(Intent.EXTRA_STREAM, uri); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }, "Oluşturulan APK’yı kaydet veya paylaş"))
     } catch (error: Throwable) { showError("Paylaşım kullanılamıyor", error.message) }
   }
+
+  private fun recordHistory(status: String, summary: String, output: File?) {
+    val now = System.currentTimeMillis()
+    history.add(ProcessingHistoryEntry(now, sourceName.ifBlank { "Bilinmeyen paket" }, selectedProfile, status, now, output?.absolutePath, summary, processingLogs.toList()))
+  }
+
+  private fun formatTime(timestamp: Long): String = SimpleDateFormat("d MMM HH:mm", Locale("tr", "TR")).format(Date(timestamp))
 
   private fun queryName(uri: Uri): String? = contentResolver.query(uri, null, null, null, null)?.use { cursor -> val index = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME); if (cursor.moveToFirst() && index >= 0) cursor.getString(index) else null }
   private fun option(title: String, detail: String, value: Boolean, enabled: Boolean, onChange: (Boolean) -> Unit) {

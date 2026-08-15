@@ -121,8 +121,9 @@ class IsolatedToolRunner(private val context: Context) {
       putExtra(IsolatedToolService.EXTRA_RECEIVER, receiver)
     })
     require(started != null) { "Yerel işlem motoru başlatılamadı." }
-    require(latch.await(timeoutSeconds, TimeUnit.SECONDS)) {
-      "Yerel motor yanıt vermedi. Uygulama açık kaldı; paketi daha güvenli profil ile tekrar deneyin."
+    if (!latch.await(timeoutSeconds, TimeUnit.SECONDS)) {
+      cancelActive()
+      error("Yerel motor ${timeoutSeconds / 60} dakika içinde yanıt vermedi; güvenli biçimde durduruldu. Daha küçük veya daha güvenli profil ile tekrar deneyin.")
     }
     require(resultCode == IsolatedToolService.RESULT_OK) { failure ?: "Yerel motor görevi tamamlanamadı." }
   }

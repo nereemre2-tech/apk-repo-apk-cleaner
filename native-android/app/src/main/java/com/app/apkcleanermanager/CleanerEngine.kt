@@ -186,7 +186,7 @@ class CleanerEngine(private val context: Context) {
         patchAds -> "clean-$profile"
         else -> "optimized"
       }
-      progress(91, "Çıktı APK’sı yerel sertifikayla imzalanıyor")
+      progress(91, "Çıktı APK’sı yerel sertifikayla imzalanıyor; büyük paketlerde bu aşama birkaç dakika sürebilir")
       val output = try {
         signApk(unsigned, outputDirectory, "$base-$label.apk", work)
       } catch (signError: Throwable) {
@@ -196,7 +196,7 @@ class CleanerEngine(private val context: Context) {
         manifestPatched = 0
         val fallbackUnsigned = File(work, "unsigned-without-manifest.apk")
         rewriteApk(working, fallbackUnsigned, replacements, removed)
-        progress(91, "Orijinal manifest korunarak DEX değişiklikleri imzalanıyor")
+        progress(91, "Orijinal manifest korunarak DEX değişiklikleri imzalanıyor; büyük paketlerde bu aşama birkaç dakika sürebilir")
         try {
           signApk(fallbackUnsigned, outputDirectory, "$base-$label.apk", work)
         } catch (fallbackError: Throwable) {
@@ -301,7 +301,7 @@ class CleanerEngine(private val context: Context) {
       "--apks", unsigned.absolutePath, "--out", signedDirectory.absolutePath, "--allowResign", "--skipZipAlign",
       "--ks", keyStore.absolutePath, "--ksAlias", "androiddebugkey", "--ksPass", "android", "--ksKeyPass", "android",
     )
-    toolRunner.run(IsolatedToolService.COMMAND_SIGN, args.toList(), 180)
+    toolRunner.run(IsolatedToolService.COMMAND_SIGN, args.toList(), 600)
     val signed = signedDirectory.listFiles()?.filter { it.extension.equals("apk", true) }?.maxByOrNull { it.lastModified() }
       ?: error("APK imzalama aracı çıktı üretmedi.")
     require(signed.length() > 0L) { "APK imzalama aracı boş çıktı üretti." }

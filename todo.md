@@ -14,3 +14,8 @@
 - [x] Yayınlanacak kaynakları ve gizli/üretilmiş dosyaları genel depo için hazırlama
 - [x] `apk-repo-apk-cleaner` adlı public GitHub deposunu oluşturup projeyi yükleme
 - [x] Genel GitHub deposundaki dosya ve erişim durumunu doğrulama
+- [ ] APK işleme ekranına canlı yüzde ve aşamalı işlem günlüğü ekleme
+- [ ] Doğrudan APK indirme bağlantısı ve kurulum rehberi hazırlama
+- [ ] GitHub README belgesini kod yapısı ve derleme süreciyle genişletme
+- [ ] Tarayıcıda etkileşimli işlem akışını deneyebilecek önizleme sayfası oluşturma
+- [ ] Güncellenmiş APK ve önizlemeyi doğrulayıp GitHub deposuna gönderme

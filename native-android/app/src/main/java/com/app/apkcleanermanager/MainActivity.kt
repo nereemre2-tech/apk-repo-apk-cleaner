@@ -38,6 +38,13 @@ class MainActivity : Activity() {
   private var patchAds = true
   private var stripDebug = false
   private var busy = false
+  private var processingPercent = 0
+  private var processingMessage = "Yerel işlem motoru hazırlanıyor"
+  private val processingLogs = mutableListOf<String>()
+  private var progressValueView: TextView? = null
+  private var progressBar: ProgressBar? = null
+  private var progressMessageView: TextView? = null
+  private var progressLogView: TextView? = null
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
@@ -174,11 +181,18 @@ class MainActivity : Activity() {
     gap(12)
     card(COLOR_SOFT, 20) {
       addView(label("YEREL İŞLEM SÜRÜYOR", 10, COLOR_GREEN, true))
-      val loader = ProgressBar(this@MainActivity).apply { isIndeterminate = true; indeterminateTintList = ColorStateList.valueOf(COLOR_LIME) }
-      addView(loader, LinearLayout.LayoutParams(dp(52), dp(52)).apply { setMargins(0, dp(12), 0, 0) })
-      addView(label("Paket güvenli biçimde işleniyor", 23, COLOR_INK, true))
+      val progressRow = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(12), 0, 0) }
+      val indicator = ProgressBar(this@MainActivity, null, android.R.attr.progressBarStyleHorizontal).apply { isIndeterminate = false; max = 100; progress = processingPercent; progressTintList = ColorStateList.valueOf(COLOR_LIME); progressBackgroundTintList = ColorStateList.valueOf(COLOR_LINE) }
+      progressRow.addView(indicator, LinearLayout.LayoutParams(0, dp(10), 1f))
+      val value = label("%$processingPercent", 18, COLOR_LIME, true).apply { gravity = Gravity.CENTER; setPadding(dp(12), 0, 0, 0) }
+      progressRow.addView(value)
+      addView(progressRow)
+      addView(label(processingMessage, 23, COLOR_INK, true).also { progressMessageView = it })
       addView(label("DEX, manifest ve paket imzalama adımları tamamlanana kadar bu ekranı açık bırak. Orijinal paket değiştirilmez.", 13, COLOR_MUTED))
       addView(label("●  İşlem motoru ayrı bir güvenli süreçte çalışıyor", 11, COLOR_GREEN, true).apply { setPadding(0, dp(12), 0, 0) })
+      addView(label(processingLogs.joinToString("\n"), 11, COLOR_CONSOLE).apply { typeface = Typeface.MONOSPACE; background = shape(COLOR_DARK, COLOR_LINE, 11); setPadding(dp(12), dp(10), dp(12), dp(10)); setLineSpacing(dp(3).toFloat(), 1f); setTextIsSelectable(true); also { progressLogView = it } }.also { log -> log.setTextColor(COLOR_CONSOLE) })
+      progressValueView = value
+      progressBar = indicator
     }
   }
 
@@ -228,13 +242,33 @@ class MainActivity : Activity() {
 
   private fun startProcessing() {
     val file = selectedFile ?: return
-    busy = true; processing = null; render()
+    busy = true
+    processing = null
+    processingPercent = 4
+    processingMessage = "Yerel işlem motoru hazırlanıyor"
+    processingLogs.clear()
+    processingLogs += "✓ Orijinal paket korunuyor"
+    processingLogs += "● Yerel motor için ayrı çalışma süreci başlatıldı"
+    render()
     worker.execute {
       try {
-        val output = engine.process(file, sourceName, selectedProfile, patchAds, stripDebug)
+        val output = engine.process(file, sourceName, selectedProfile, patchAds, stripDebug) { update ->
+          runOnUiThread { updateProcessingViews(update.percent, update.message) }
+        }
         runOnUiThread { processing = output; busy = false; render() }
       } catch (error: Throwable) { runOnUiThread { busy = false; render(); showError("İşlem tamamlanamadı", error.message) } }
     }
+  }
+
+  private fun updateProcessingViews(percent: Int, message: String) {
+    processingPercent = percent.coerceAtLeast(processingPercent).coerceAtMost(100)
+    processingMessage = message
+    processingLogs += "● $message"
+    while (processingLogs.size > 8) processingLogs.removeAt(0)
+    progressValueView?.text = "%$processingPercent"
+    progressBar?.progress = processingPercent
+    progressMessageView?.text = processingMessage
+    progressLogView?.text = processingLogs.joinToString("\n")
   }
 
   private fun share(file: File) {
@@ -295,5 +329,6 @@ class MainActivity : Activity() {
     private val COLOR_NOTICE_TEXT = Color.rgb(146, 225, 190)
     private val COLOR_WARNING = Color.rgb(43, 31, 18)
     private val COLOR_WARNING_TEXT = Color.rgb(244, 197, 121)
+    private val COLOR_CONSOLE = Color.rgb(155, 228, 198)
   }
 }

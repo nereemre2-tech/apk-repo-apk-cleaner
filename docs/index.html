@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#080e0c" />
+    <title>APK Cleaner Studio — Tarayıcı Önizlemesi</title>
+    <link rel="stylesheet" href="preview.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="https://github.com/nereemre2-tech/apk-repo-apk-cleaner" target="_blank" rel="noreferrer">
+        <img src="../native-android/app/src/main/res/drawable/logo_ac.png" alt="APK Cleaner" />
+        <span><b>APK Cleaner</b><small>STUDIO · BROWSER PREVIEW</small></span>
+      </a>
+      <span class="engine"><i></i> ÖNİZLEME HAZIR</span>
+    </header>
+
+    <main>
+      <section class="hero">
+        <p class="eyebrow">◆ YEREL ANDROID PAKET İŞLEME STÜDYOSU</p>
+        <h1>Paketini bırak.<br /><em>Akışı tarayıcıda dene.</em></h1>
+        <p>Bu sayfa Android uygulamasındaki seçim, yapılandırma, canlı yüzde ve işlem günlüğü deneyimini simüle eder. Gerçek APK düzenleme yalnızca Android uygulamasında cihaz içinde yapılır.</p>
+        <div class="metrics"><span><b>18</b> reklam ağı</span><span><b>4</b> paket türü</span><span><b>%100</b> cihazda işlem</span></div>
+      </section>
+
+      <section class="studio" aria-label="İşlem akışı önizlemesi">
+        <nav class="steps" aria-label="İşlem aşamaları">
+          <div class="active"><i>1</i><span>Paket</span></div><div><i>2</i><span>Yapılandır</span></div><div><i>3</i><span>İşle</span></div><div><i>4</i><span>İndir</span></div>
+        </nav>
+
+        <section id="select-view" class="view">
+          <label class="dropzone" for="package-file">
+            <input id="package-file" type="file" accept=".apk,.apks,.apkm,.xapk" />
+            <span class="local">● GÜVENLİ YEREL İŞLEM</span><strong>↑</strong><h2>İşlenecek paketi seç</h2><p>APK · APKS · APKM · XAPK</p><button type="button" id="browse">Dosya seç</button><small>Tarayıcı önizlemesinde dosya yüklenmez veya işlenmez.</small>
+          </label>
+        </section>
+
+        <section id="config-view" class="view hidden">
+          <div class="file-card"><span>APK</span><div><b id="file-name">Örnek paket.apk</b><small id="file-detail">Yerel önizleme · Dosya boyutu bilinmiyor</small></div></div>
+          <p class="caption">İŞLEM TÜRÜ</p><h2>Uygulanacak işlemi seç</h2>
+          <div class="operations">
+            <button class="operation selected" data-operation="clean"><b>✦</b><span><strong>Reklam izlerini temizle</strong><small>Doğrulanmış DEX çağrılarını ve manifest adaylarını düzenler.</small></span><i>●</i></button>
+            <button class="operation" data-operation="convert"><b>⇄</b><span><strong>Tek APK oluştur</strong><small>Split modüllerini tek kurulabilir APK’da birleştirir.</small></span><i>○</i></button>
+          </div>
+          <p class="caption">TEMİZLİK KAPSAMI</p><h2>Temizlik kapsamını belirle</h2>
+          <div class="profiles">
+            <button data-profile="safe"><b>Güvenli</b><small>EN UYUMLU</small><span>Yalnızca doğrulanmış çağrıları etkisizleştirir.</span></button>
+            <button class="selected" data-profile="balanced"><b>Dengeli</b><small>ÖNERİLEN</small><span>DEX düzenlemesine manifest adaylarını ekler.</span></button>
+            <button data-profile="deep"><b>Kapsamlı</b><small>EN GENİŞ KAPSAM</small><span>Doğrulanmış asset ve kütüphane kalıntılarını hedefler.</span></button>
+          </div>
+          <label class="option"><input id="debug" type="checkbox" /><span></span><div><b>DEX hata ayıklama verisi</b><small>Kaynak, satır ve yerel değişken kayıtlarını temizler.</small></div></label>
+          <button id="start" class="primary">İşlemi başlat <span>→</span></button>
+        </section>
+
+        <section id="work-view" class="view hidden work">
+          <p class="caption">YEREL İŞLEM SÜRÜYOR</p><div class="percentage"><b id="percentage">0%</b><span id="phase">Yerel işlem motoru hazırlanıyor</span></div>
+          <div class="progress"><i id="bar"></i></div>
+          <p>Android uygulamasında araçlar ayrı bir güvenli süreçte çalışır. Bu önizleme, aynı durum akışını gösterir.</p>
+          <pre id="log">✓ Orijinal paket korunuyor
+● Yerel motor için ayrı çalışma süreci başlatıldı</pre>
+        </section>
+
+        <section id="result-view" class="view hidden result">
+          <div class="success">✓</div><p class="caption">İŞLEM TAMAMLANDI</p><h2>Önizleme akışı başarıyla tamamlandı.</h2><p>Gerçek Android uygulaması, çıktıyı yerel sertifika ile imzalayıp paylaşım ekranına iletir.</p>
+          <a class="primary" href="https://github.com/nereemre2-tech/apk-repo-apk-cleaner/releases/latest" target="_blank" rel="noreferrer">APK’yı indir <span>↓</span></a><button id="again" class="secondary">Başka bir paket dene</button>
+        </section>
+      </section>
+
+      <section class="info"><img src="../native-android/app/src/main/res/drawable/apk_repo_icon.png" alt="APK Repo" /><div><p class="caption">APK REPO GRUBU</p><h2>Yerel araçlar · görünür işlem akışı</h2><p>Android sürümü için doğrudan indirme, kurulum rehberi ve kaynak kodu GitHub deposunda yer alır.</p></div><a href="../INSTALL.md" target="_blank">Kurulum rehberi →</a></section>
+    </main>
+    <script src="preview.js"></script>
+  </body>
+</html>

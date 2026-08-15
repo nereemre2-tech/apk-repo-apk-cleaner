@@ -44,6 +44,8 @@ data class ProcessingResult(
   val splitMerged: Boolean,
 )
 
+data class ProcessingUpdate(val percent: Int, val message: String)
+
 private data class Scan(
   val dexRows: List<DexRow>,
   val detectionCounts: Map<String, Int>,
@@ -66,18 +68,30 @@ class CleanerEngine(private val context: Context) {
     return Analysis(displayName, input.length(), sha256(input), scan.dexRows.size, detected, isSplit, modules)
   }
 
-  fun process(input: File, sourceName: String, profile: String, patchAds: Boolean, stripDebug: Boolean): ProcessingResult {
+  fun process(
+    input: File,
+    sourceName: String,
+    profile: String,
+    patchAds: Boolean,
+    stripDebug: Boolean,
+    onProgress: (ProcessingUpdate) -> Unit = {},
+  ): ProcessingResult {
+    fun progress(percent: Int, message: String) = onProgress(ProcessingUpdate(percent.coerceIn(0, 100), message))
     require(profile in setOf("safe", "balanced", "deep")) { "Bilinmeyen temizlik profili." }
     val work = File(context.cacheDir, "apk-cleaner-${System.currentTimeMillis()}").apply { mkdirs() }
     try {
+      progress(5, "Çalışma alanı hazırlanıyor")
       val sourceIsSplit = extensionOf(sourceName) in splitExtensions
       var working = input
       if (sourceIsSplit) {
+        progress(12, "Split modülleri tek APK için birleştiriliyor")
         val merged = File(work, "universal.apk")
         toolRunner.run(IsolatedToolService.COMMAND_SPLIT, listOf("m", "-i", input.absolutePath, "-o", merged.absolutePath, "-clean-meta"), 180)
         require(merged.isFile) { "Split paket tek APK’ya dönüştürülemedi." }
         working = merged
+        progress(24, "Split birleşimi tamamlandı")
       }
+      progress(28, "Paket içeriği ve DEX dosyaları tekrar taranıyor")
       val scan = scanApk(working)
       val selectedProfiles = scan.detectionCounts.keys
       if (patchAds && selectedProfiles.isEmpty()) error("Bilinen reklam SDK’sı bulunamadı; reklam yaması uygulanmadı.")
@@ -86,7 +100,10 @@ class CleanerEngine(private val context: Context) {
       var dexPatched = 0
       if (patchAds || stripDebug) {
         ZipFile(working).use { archive ->
-          scan.dexRows.filter { stripDebug || (patchAds && it.profiles.isNotEmpty()) }.forEachIndexed { index, row ->
+          val targetDex = scan.dexRows.filter { stripDebug || (patchAds && it.profiles.isNotEmpty()) }
+          targetDex.forEachIndexed { index, row ->
+            val before = 32 + ((index * 34) / targetDex.size.coerceAtLeast(1))
+            progress(before, "${row.name} DEX dosyası hazırlanıyor (${index + 1}/${targetDex.size})")
             val dexIn = File(work, "input-$index.dex")
             archive.getInputStream(archive.getEntry(row.name)).use { it.copyTo(dexIn.outputStream()) }
             val dexOut = File(work, "patched-$index.dex")
@@ -99,12 +116,15 @@ class CleanerEngine(private val context: Context) {
             require(dexOut.isFile) { "DEX yama motoru çıktı dosyası üretmedi." }
             replacements[row.name] = dexOut
             dexPatched += 1
+            val after = 32 + (((index + 1) * 34) / targetDex.size.coerceAtLeast(1))
+            progress(after, "${row.name} için DEX yaması tamamlandı")
           }
         }
       }
 
       var manifestPatched = 0
       if (patchAds && profile != "safe" && scan.manifestHits.isNotEmpty()) {
+        progress(70, "Manifest reklam izinleri ve metadata kayıtları denetleniyor")
         val manifestIn = File(work, "AndroidManifest-input.bin")
         ZipFile(working).use { archive ->
           archive.getEntry("AndroidManifest.xml")?.let { entry -> archive.getInputStream(entry).use { it.copyTo(manifestIn.outputStream()) } }
@@ -125,12 +145,15 @@ class CleanerEngine(private val context: Context) {
           if (manifestOut.isFile) {
             replacements["AndroidManifest.xml"] = manifestOut
             manifestPatched = 1
+            progress(76, "Manifest düzenlemesi tamamlandı")
           }
         }
       }
 
+      if (patchAds && profile == "deep") progress(78, "Kapsamlı profil için doğrulanmış asset ve kütüphaneler denetleniyor")
       val removed = if (patchAds && profile == "deep") deepRemovals(working, selectedProfiles) else emptySet()
       val unsigned = if (replacements.isNotEmpty() || removed.isNotEmpty()) {
+        progress(82, "Değişiklikler yeni APK paketine yazılıyor")
         File(work, "unsigned.apk").also { rewriteApk(working, it, replacements, removed) }
       } else working
       val outputDirectory = File(context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), "APK Cleaner").apply { mkdirs() }
@@ -140,7 +163,9 @@ class CleanerEngine(private val context: Context) {
         patchAds -> "clean-$profile"
         else -> "optimized"
       }
+      progress(91, "Çıktı APK’sı yerel sertifikayla imzalanıyor")
       val output = signApk(unsigned, outputDirectory, "$base-$label.apk", work)
+      progress(100, "İşlem tamamlandı: ${output.name}")
       return ProcessingResult(output, dexPatched, manifestPatched, removed.size, sourceIsSplit)
     } finally {
       work.deleteRecursively()

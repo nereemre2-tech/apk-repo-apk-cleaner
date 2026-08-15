@@ -1,0 +1,5 @@
+# Bu dosyayı signing.properties adıyla kopyalayın. Dosya ve keystore dizini git tarafından izlenmez.
+storeFile=keystore/apk-cleaner-release.jks
+storePassword=CHANGE_ME
+keyAlias=apkcleaner
+keyPassword=CHANGE_ME

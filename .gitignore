@@ -42,6 +42,8 @@ app-example
 /ios
 /android
 native-android/local.properties
+native-android/signing.properties
+native-android/keystore/
 
 # IDE
 .vscode/

@@ -56,6 +56,14 @@ class CleanerEngine(private val context: Context) {
   private val splitExtensions = setOf("apks", "apkm", "xapk")
   private val profiles: List<CleanerProfile> by lazy { loadProfiles() }
   private val toolRunner = IsolatedToolRunner(context.applicationContext)
+  @Volatile private var cancellationRequested = false
+
+  fun cancelActiveWork() {
+    cancellationRequested = true
+    toolRunner.cancelActive()
+  }
+
+  fun wasCancellationRequested(): Boolean = cancellationRequested
 
   fun analyze(input: File, displayName: String): Analysis {
     require(isZip(input)) { "Dosya geçerli bir APK/ZIP paketi değil." }
@@ -76,7 +84,9 @@ class CleanerEngine(private val context: Context) {
     stripDebug: Boolean,
     onProgress: (ProcessingUpdate) -> Unit = {},
   ): ProcessingResult {
-    fun progress(percent: Int, message: String) = onProgress(ProcessingUpdate(percent.coerceIn(0, 100), message))
+    cancellationRequested = false
+    fun checkCancelled() { check(!cancellationRequested) { "İşlem kullanıcı tarafından iptal edildi." } }
+    fun progress(percent: Int, message: String) { checkCancelled(); onProgress(ProcessingUpdate(percent.coerceIn(0, 100), message)) }
     require(profile in setOf("safe", "balanced", "deep")) { "Bilinmeyen temizlik profili." }
     val work = File(context.cacheDir, "apk-cleaner-${System.currentTimeMillis()}").apply { mkdirs() }
     try {
@@ -93,6 +103,7 @@ class CleanerEngine(private val context: Context) {
       }
       progress(28, "Paket içeriği ve DEX dosyaları tekrar taranıyor")
       val scan = scanApk(working)
+      checkCancelled()
       val selectedProfiles = scan.detectionCounts.keys
       if (patchAds && selectedProfiles.isEmpty()) error("Bilinen reklam SDK’sı bulunamadı; reklam yaması uygulanmadı.")
 
@@ -113,6 +124,7 @@ class CleanerEngine(private val context: Context) {
               args.add(descriptor)
             }
             toolRunner.run(IsolatedToolService.COMMAND_DEX, args)
+            checkCancelled()
             require(dexOut.isFile) { "DEX yama motoru çıktı dosyası üretmedi." }
             replacements[row.name] = dexOut
             dexPatched += 1
@@ -142,6 +154,7 @@ class CleanerEngine(private val context: Context) {
             "android.permission.ACCESS_ADSERVICES_TOPICS", "android.permission.AD_SERVICES_CONFIG",
           ).forEach { args.addAll(listOf("--permission", it)) }
           toolRunner.run(IsolatedToolService.COMMAND_MANIFEST, args)
+          checkCancelled()
           if (manifestOut.isFile) {
             replacements["AndroidManifest.xml"] = manifestOut
             manifestPatched = 1
@@ -165,6 +178,7 @@ class CleanerEngine(private val context: Context) {
       }
       progress(91, "Çıktı APK’sı yerel sertifikayla imzalanıyor")
       val output = signApk(unsigned, outputDirectory, "$base-$label.apk", work)
+      checkCancelled()
       progress(100, "İşlem tamamlandı: ${output.name}")
       return ProcessingResult(output, dexPatched, manifestPatched, removed.size, sourceIsSplit)
     } finally {
@@ -242,6 +256,7 @@ class CleanerEngine(private val context: Context) {
     ZipFile(source).use { archive ->
       ZipOutputStream(FileOutputStream(destination)).use { output ->
         archive.entries().asSequence().forEach { entry ->
+          check(!cancellationRequested) { "İşlem kullanıcı tarafından iptal edildi." }
           val upper = entry.name.uppercase()
           val signature = upper.startsWith("META-INF/") && upper.endsWith(".RSA", true) || upper.endsWith(".DSA", true) || upper.endsWith(".EC", true) || upper.endsWith(".SF", true) || upper.endsWith("MANIFEST.MF", true)
           if (signature || entry.name in removals) return@forEach

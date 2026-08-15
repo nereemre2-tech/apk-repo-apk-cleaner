@@ -4,7 +4,10 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
+import android.os.Process
 import android.os.ResultReceiver
 import com.reandroid.apkeditor.Main
 import local.apkcleaner.dex.DirectDexPatcher
@@ -20,6 +23,7 @@ import java.util.concurrent.TimeUnit
  */
 class IsolatedToolService : Service() {
   private val executor = Executors.newSingleThreadExecutor()
+  @Volatile private var activeReceiver: ResultReceiver? = null
 
   override fun onBind(intent: Intent?): IBinder? = null
 
@@ -27,6 +31,14 @@ class IsolatedToolService : Service() {
     val command = intent?.action
     val arguments = intent?.getStringArrayListExtra(EXTRA_ARGUMENTS)?.toTypedArray() ?: emptyArray()
     val receiver = intent?.getParcelableExtra<ResultReceiver>(EXTRA_RECEIVER)
+    if (command == COMMAND_CANCEL) {
+      activeReceiver?.send(RESULT_CANCELLED, Bundle().apply { putString("message", "İşlem kullanıcı tarafından iptal edildi.") })
+      executor.shutdownNow()
+      stopSelf()
+      Handler(Looper.getMainLooper()).postDelayed({ Process.killProcess(Process.myPid()) }, 150)
+      return START_NOT_STICKY
+    }
+    activeReceiver = receiver
     executor.execute {
       try {
         when (command) {
@@ -49,6 +61,7 @@ class IsolatedToolService : Service() {
           putString("message", error.cause?.message ?: error.message ?: error.javaClass.simpleName)
         })
       } finally {
+        activeReceiver = null
         stopSelf(startId)
       }
     }
@@ -65,14 +78,20 @@ class IsolatedToolService : Service() {
     const val COMMAND_MANIFEST = "com.app.apkcleanermanager.tool.MANIFEST"
     const val COMMAND_SPLIT = "com.app.apkcleanermanager.tool.SPLIT"
     const val COMMAND_SIGN = "com.app.apkcleanermanager.tool.SIGN"
+    const val COMMAND_CANCEL = "com.app.apkcleanermanager.tool.CANCEL"
     const val EXTRA_ARGUMENTS = "arguments"
     const val EXTRA_RECEIVER = "receiver"
     const val RESULT_OK = 1
     const val RESULT_ERROR = 2
+    const val RESULT_CANCELLED = 3
   }
 }
 
 class IsolatedToolRunner(private val context: Context) {
+  fun cancelActive() {
+    context.startService(Intent(context, IsolatedToolService::class.java).apply { action = IsolatedToolService.COMMAND_CANCEL })
+  }
+
   fun run(command: String, arguments: List<String>, timeoutSeconds: Long = 90) {
     val latch = CountDownLatch(1)
     var resultCode = IsolatedToolService.RESULT_ERROR

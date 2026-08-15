@@ -9,6 +9,7 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
+import android.os.Environment
 import android.view.Gravity
 import android.view.View
 import android.widget.Button
@@ -38,6 +39,7 @@ class MainActivity : Activity() {
   private var patchAds = true
   private var stripDebug = false
   private var busy = false
+  private var cancellationRequested = false
   private var processingPercent = 0
   private var processingMessage = "Yerel işlem motoru hazırlanıyor"
   private val processingLogs = mutableListOf<String>()
@@ -45,6 +47,7 @@ class MainActivity : Activity() {
   private var progressBar: ProgressBar? = null
   private var progressMessageView: TextView? = null
   private var progressLogView: TextView? = null
+  private var cancelButton: Button? = null
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
@@ -75,6 +78,9 @@ class MainActivity : Activity() {
       else -> analysisScreen()
     }
     processing?.let { resultScreen(it) }
+    if (!busy && processing == null && processingLogs.isNotEmpty()) {
+      actionButton("İşlem günlüğünü TXT olarak paylaş", COLOR_GREEN, true) { exportProcessingLog() }
+    }
     gap(14)
     communityCard()
     gap(10)
@@ -194,6 +200,18 @@ class MainActivity : Activity() {
       progressValueView = value
       progressBar = indicator
     }
+    val cancel = Button(this).apply {
+      text = if (cancellationRequested) "İptal ediliyor…" else "İşlemi iptal et"
+      textSize = 14f
+      typeface = Typeface.DEFAULT_BOLD
+      isAllCaps = false
+      isEnabled = !cancellationRequested
+      setTextColor(COLOR_WARNING_TEXT)
+      background = shape(COLOR_WARNING, COLOR_WARNING_TEXT, 12)
+      setOnClickListener { requestCancellation() }
+    }
+    add(cancel, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(50)).apply { setMargins(0, dp(12), 0, 0) })
+    cancelButton = cancel
   }
 
   private fun resultScreen(result: ProcessingResult) {
@@ -205,6 +223,7 @@ class MainActivity : Activity() {
       addView(label("${result.dexPatched} DEX · ${result.manifestPatched} manifest · ${result.removedFiles} dosya değişikliği", 12, Color.rgb(184, 196, 214)))
     }
     actionButton("APK’yı kaydet / paylaş", COLOR_LIME, true) { share(result.output) }
+    actionButton("İşlem günlüğünü TXT olarak paylaş", COLOR_GREEN, true) { exportProcessingLog() }
   }
 
   private fun communityCard() {
@@ -244,6 +263,7 @@ class MainActivity : Activity() {
     val file = selectedFile ?: return
     busy = true
     processing = null
+    cancellationRequested = false
     processingPercent = 4
     processingMessage = "Yerel işlem motoru hazırlanıyor"
     processingLogs.clear()
@@ -256,7 +276,56 @@ class MainActivity : Activity() {
           runOnUiThread { updateProcessingViews(update.percent, update.message) }
         }
         runOnUiThread { processing = output; busy = false; render() }
-      } catch (error: Throwable) { runOnUiThread { busy = false; render(); showError("İşlem tamamlanamadı", error.message) } }
+      } catch (error: Throwable) {
+        runOnUiThread {
+          busy = false
+          if (engine.wasCancellationRequested()) {
+            processingLogs += "■ İşlem kullanıcı tarafından iptal edildi; geçici dosyalar temizlendi"
+            render()
+            showError("İşlem iptal edildi", "Çıktı APK oluşturulmadı. Orijinal paket korunmuştur.")
+          } else {
+            render()
+            showError("İşlem tamamlanamadı", error.message)
+          }
+        }
+      }
+    }
+  }
+
+  private fun requestCancellation() {
+    if (!busy || cancellationRequested) return
+    cancellationRequested = true
+    cancelButton?.isEnabled = false
+    cancelButton?.text = "İptal ediliyor…"
+    updateProcessingViews(processingPercent, "İptal isteği alındı; aktif araç güvenli biçimde durduruluyor")
+    engine.cancelActiveWork()
+  }
+
+  private fun exportProcessingLog() {
+    try {
+      val folder = File(getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), "APK Cleaner/Logs").apply { mkdirs() }
+      val base = sourceName.substringBeforeLast('.', "package").replace(Regex("[^A-Za-z0-9._-]+"), "_")
+      val report = File(folder, "$base-islem-gunlugu-${System.currentTimeMillis()}.txt")
+      val content = buildString {
+        appendLine("APK Cleaner Manager — İşlem Günlüğü")
+        appendLine("Kaynak paket: ${if (sourceName.isBlank()) "Bilinmiyor" else sourceName}")
+        appendLine("Profil: $selectedProfile")
+        appendLine("Reklam yaması: ${if (patchAds) "Etkin" else "Kapalı"}")
+        appendLine("DEX hata ayıklama temizliği: ${if (stripDebug) "Etkin" else "Kapalı"}")
+        appendLine("Durum: ${if (processing != null) "Tamamlandı" else if (cancellationRequested) "İptal edildi" else "İşlem kaydı"}")
+        appendLine()
+        processingLogs.forEach(::appendLine)
+      }
+      report.writeText(content)
+      val uri = FileProvider.getUriForFile(this, "com.app.apkcleanermanager.files", report)
+      startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        putExtra(Intent.EXTRA_STREAM, uri)
+        putExtra(Intent.EXTRA_TITLE, report.name)
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+      }, "İşlem günlüğünü kaydet veya paylaş"))
+    } catch (error: Throwable) {
+      showError("Günlük dışa aktarılamadı", error.message)
     }
   }
 

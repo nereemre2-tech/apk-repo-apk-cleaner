@@ -19,3 +19,9 @@
 - [x] GitHub README belgesini kod yapısı ve derleme süreciyle genişletme
 - [x] Tarayıcıda etkileşimli işlem akışını deneyebilecek önizleme sayfası oluşturma
 - [x] Güncellenmiş APK ve önizlemeyi doğrulayıp GitHub deposuna gönderme
+- [x] İşlem günlüğünü metin dosyası olarak kaydetme ve paylaşma akışını ekleme
+- [x] APK işleme sırasında güvenli iptal düğmesi ve iptal durumu ekleme
+- [x] Özel üretim keystore yapılandırmasını gizli bilgileri koruyacak şekilde ekleme
+- [x] Yeni akışları derleyip doğrulama ve GitHub deposuna gönderme
+- [x] Proje için özel üretim keystore anahtarı oluşturma ve gizli dosya olarak yapılandırma
+- [x] Üretim imzalı APK’yı özel keystore sertifikasıyla doğrulama

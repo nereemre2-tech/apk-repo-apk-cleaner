@@ -34,4 +34,4 @@
 - [x] Bildirim ve reklam temizleme modunu üretim APK’da doğrulayıp GitHub sürümünü güncelleme
 - [x] AdShield için doğrulanmış SDK ve değişiklik kapsamı verisini önizleme modeline ekleme
 - [x] İşlem öncesi AdShield etki özeti ve kullanıcı onay ekranını uygulama
-- [ ] Önizleme-onay akışını üretim APK’da doğrulayıp GitHub sürümünü güncelleme
+- [x] Önizleme-onay akışını üretim APK’da doğrulayıp GitHub sürümünü güncelleme

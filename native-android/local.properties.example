@@ -1,0 +1,2 @@
+# Android SDK yolunuzu bu dosyayı local.properties adıyla kopyalayarak ayarlayın.
+sdk.dir=/path/to/Android/Sdk

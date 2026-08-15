@@ -51,14 +51,22 @@ class IsolatedToolService : Service() {
           COMMAND_SIGN -> {
             val tool = Class.forName("at.favre.tools.apksigner.SignTool")
             val execute = tool.getDeclaredMethod("mainExecute", Array<String>::class.java).apply { isAccessible = true }
-            execute.invoke(null, arguments as Any)
+            val result = execute.invoke(null, arguments as Any)
+            if (result != null) {
+              val resultClass = result.javaClass
+              val error = resultClass.getDeclaredField("error").apply { isAccessible = true }.getBoolean(result)
+              val unsuccessful = resultClass.getDeclaredField("unsuccessful").apply { isAccessible = true }.getInt(result)
+              require(!error && unsuccessful == 0) {
+                "APK imzalama aracı imza veya doğrulama hatası bildirdi ($unsuccessful başarısız paket)."
+              }
+            }
           }
           else -> error("Bilinmeyen yerel motor görevi.")
         }
         receiver?.send(RESULT_OK, Bundle())
       } catch (error: Throwable) {
         receiver?.send(RESULT_ERROR, Bundle().apply {
-          putString("message", error.cause?.message ?: error.message ?: error.javaClass.simpleName)
+          putString("message", errorDetail(error))
         })
       } finally {
         activeReceiver = null
@@ -72,6 +80,10 @@ class IsolatedToolService : Service() {
     executor.shutdownNow()
     super.onDestroy()
   }
+
+  private fun errorDetail(error: Throwable): String = generateSequence(error) { it.cause }
+    .take(4)
+    .joinToString(" → ") { item -> item.message?.takeIf { it.isNotBlank() } ?: item.javaClass.simpleName }
 
   companion object {
     const val COMMAND_DEX = "com.app.apkcleanermanager.tool.DEX"

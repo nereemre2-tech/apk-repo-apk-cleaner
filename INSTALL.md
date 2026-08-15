@@ -4,7 +4,7 @@
 
 Güncel ARM64 sürümünü [GitHub sürümler sayfasından](https://github.com/nereemre2-tech/apk-repo-apk-cleaner/releases/latest) indirebilirsiniz. Doğrudan dosya bağlantısı, sürüm yayınlandıktan sonra aşağıdaki biçimde çalışır:
 
-`https://github.com/nereemre2-tech/apk-repo-apk-cleaner/releases/latest/download/APK-Cleaner-Manager-v1.6.0-arm64-release.apk`
+`https://github.com/nereemre2-tech/apk-repo-apk-cleaner/releases/latest/download/APK-Cleaner-Manager-v1.6.1-arm64-release.apk`
 
 Bu APK, **ARM64-v8a** mimarisine sahip Android cihazlar içindir. Android 8.0 (API 26) ve daha yeni sürümler gerekir.
 

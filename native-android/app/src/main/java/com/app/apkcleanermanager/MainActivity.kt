@@ -415,11 +415,12 @@ class MainActivity : Activity() {
             render()
             showError("İşlem iptal edildi", "Çıktı APK oluşturulmadı. Orijinal paket korunmuştur.")
           } else {
-            processingLogs += "■ Hata: ${error.message ?: "Bilinmeyen hata"}"
-            recordHistory("Hata", error.message ?: "Bilinmeyen hata", null)
+            val detail = failureDetail(error)
+            processingLogs += "■ Hata: $detail"
+            recordHistory("Hata", detail, null)
             notifyIfBackground { notifier.failed(sourceName) }
             render()
-            showError("İşlem tamamlanamadı", error.message)
+            showError("İşlem tamamlanamadı", detail)
           }
         }
       }
@@ -508,6 +509,10 @@ class MainActivity : Activity() {
   }
 
   private fun formatTime(timestamp: Long): String = SimpleDateFormat("d MMM HH:mm", Locale("tr", "TR")).format(Date(timestamp))
+
+  private fun failureDetail(error: Throwable): String = generateSequence(error) { it.cause }
+    .take(4)
+    .joinToString(" → ") { item -> item.message?.takeIf { it.isNotBlank() } ?: item.javaClass.simpleName }
 
   private fun requestNotificationPermission() {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {

@@ -187,7 +187,22 @@ class CleanerEngine(private val context: Context) {
         else -> "optimized"
       }
       progress(91, "Çıktı APK’sı yerel sertifikayla imzalanıyor")
-      val output = signApk(unsigned, outputDirectory, "$base-$label.apk", work)
+      val output = try {
+        signApk(unsigned, outputDirectory, "$base-$label.apk", work)
+      } catch (signError: Throwable) {
+        if (manifestPatched == 0) throw signError
+        progress(84, "Manifest düzenlemesi imzalama doğrulamasını geçemedi; güvenli geri alma uygulanıyor")
+        replacements.remove("AndroidManifest.xml")
+        manifestPatched = 0
+        val fallbackUnsigned = File(work, "unsigned-without-manifest.apk")
+        rewriteApk(working, fallbackUnsigned, replacements, removed)
+        progress(91, "Orijinal manifest korunarak DEX değişiklikleri imzalanıyor")
+        try {
+          signApk(fallbackUnsigned, outputDirectory, "$base-$label.apk", work)
+        } catch (fallbackError: Throwable) {
+          throw IllegalStateException("Manifest geri alma sonrasında da APK imzalanamadı: ${failureDetail(fallbackError)}", fallbackError)
+        }
+      }
       checkCancelled()
       progress(100, "İşlem tamamlandı: ${output.name}")
       return ProcessingResult(output, dexPatched, manifestPatched, removed.size, sourceIsSplit)
@@ -289,8 +304,20 @@ class CleanerEngine(private val context: Context) {
     toolRunner.run(IsolatedToolService.COMMAND_SIGN, args.toList(), 180)
     val signed = signedDirectory.listFiles()?.filter { it.extension.equals("apk", true) }?.maxByOrNull { it.lastModified() }
       ?: error("APK imzalama aracı çıktı üretmedi.")
-    return File(destinationDirectory, safeName(outputName)).also { target -> FileInputStream(signed).use { input -> target.outputStream().use { input.copyTo(it) } } }
+    require(signed.length() > 0L) { "APK imzalama aracı boş çıktı üretti." }
+    ZipFile(signed).use { archive -> require(archive.entries().hasMoreElements()) { "İmzalanmış APK geçerli bir arşiv değil." } }
+    val target = File(destinationDirectory, safeName(outputName))
+    val staging = File(destinationDirectory, ".${target.name}.tmp")
+    FileInputStream(signed).use { input -> staging.outputStream().use { input.copyTo(it) } }
+    require(staging.length() == signed.length()) { "İmzalanmış APK dışa aktarılırken dosya eksik yazıldı." }
+    if (target.exists()) require(target.delete()) { "Eski APK çıktısı değiştirilemedi." }
+    require(staging.renameTo(target)) { "İmzalanmış APK kalıcı depolamaya taşınamadı." }
+    return target
   }
+
+  private fun failureDetail(error: Throwable): String = generateSequence(error) { it.cause }
+    .take(4)
+    .joinToString(" → ") { item -> item.message?.takeIf { it.isNotBlank() } ?: item.javaClass.simpleName }
 
   private fun loadProfiles(): List<CleanerProfile> {
     val root = JSONObject(context.assets.open("profiles.json").bufferedReader().use { it.readText() })

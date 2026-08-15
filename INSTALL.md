@@ -20,6 +20,8 @@ Bu APK, **ARM64-v8a** mimarisine sahip Android cihazlar içindir. Android 8.0 (A
 
 > Paket çıktıları yerel sertifikayla yeniden imzalanır. Bu nedenle mağazadan yüklenen uygulamanın mevcut sürümünün üzerine doğrudan kurulum mümkün olmayabilir; önce eski sürümü kaldırmanız gerekebilir.
 
+> **v1.6.1 yükseltme notu:** Önceki v1.6.0 uygulama paketiyle farklı bir uygulama imza sertifikası kullanıldığından Android, güncellemeyi "paket çakışıyor" uyarısıyla engelleyebilir. Bu durumda eski APK Cleaner Manager uygulamasını kaldırıp v1.6.1’i yeniden kurun. Uygulamayı kaldırmadan önce ihtiyaç duyduğunuz işlem günlüklerini ve APK çıktılarını paylaşın; kaldırma, uygulamanın cihaz içi geçmişini siler.
+
 ## Güvenlik ve Yetki
 
 Yalnızca sahibi olduğunuz veya açıkça değiştirme/test etme yetkiniz bulunan paketlerde kullanın. Uygulama lisans kontrollerini, satın alımları ya da ücretli özellikleri atlamak için tasarlanmamıştır.

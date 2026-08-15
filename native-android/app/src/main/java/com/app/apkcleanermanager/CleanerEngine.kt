@@ -82,6 +82,7 @@ class CleanerEngine(private val context: Context) {
     profile: String,
     patchAds: Boolean,
     stripDebug: Boolean,
+    adCleaningMode: AdCleaningMode = AdCleaningMode.LEGACY,
     onProgress: (ProcessingUpdate) -> Unit = {},
   ): ProcessingResult {
     cancellationRequested = false
@@ -104,8 +105,15 @@ class CleanerEngine(private val context: Context) {
       progress(28, "Paket içeriği ve DEX dosyaları tekrar taranıyor")
       val scan = scanApk(working)
       checkCancelled()
-      val selectedProfiles = scan.detectionCounts.keys
-      if (patchAds && selectedProfiles.isEmpty()) error("Bilinen reklam SDK’sı bulunamadı; reklam yaması uygulanmadı.")
+      val selectedProfiles = when (adCleaningMode) {
+        AdCleaningMode.LEGACY -> scan.detectionCounts.keys
+        AdCleaningMode.AD_SHIELD -> AdShield.verifiedProfileIds(scan.detectionCounts, scan.manifestHits, scan.dexRows)
+      }
+      if (patchAds && selectedProfiles.isEmpty()) {
+        error(if (adCleaningMode == AdCleaningMode.AD_SHIELD) "AdShield çifte kanıt kuralını karşılayan reklam SDK’sı bulamadı; uygulama güvenliği için değişiklik yapılmadı." else "Bilinen reklam SDK’sı bulunamadı; reklam yaması uygulanmadı.")
+      }
+      val effectiveProfile = if (adCleaningMode == AdCleaningMode.AD_SHIELD) "safe" else profile
+      if (patchAds && adCleaningMode == AdCleaningMode.AD_SHIELD) progress(31, "AdShield yalnızca çifte kanıtla doğrulanan ağları güvenli modda nötralize ediyor")
 
       val replacements = linkedMapOf<String, File>()
       var dexPatched = 0
@@ -118,7 +126,7 @@ class CleanerEngine(private val context: Context) {
             val dexIn = File(work, "input-$index.dex")
             archive.getInputStream(archive.getEntry(row.name)).use { it.copyTo(dexIn.outputStream()) }
             val dexOut = File(work, "patched-$index.dex")
-            val args = mutableListOf("--input", dexIn.absolutePath, "--output", dexOut.absolutePath, "--mode", profile, "--strip-debug", stripDebug.toString())
+            val args = mutableListOf("--input", dexIn.absolutePath, "--output", dexOut.absolutePath, "--mode", effectiveProfile, "--strip-debug", stripDebug.toString())
             if (patchAds) profiles.filter { it.id in selectedProfiles }.flatMap { it.descriptors }.distinct().forEach { descriptor ->
               args.add("--descriptor")
               args.add(descriptor)
@@ -135,7 +143,7 @@ class CleanerEngine(private val context: Context) {
       }
 
       var manifestPatched = 0
-      if (patchAds && profile != "safe" && scan.manifestHits.isNotEmpty()) {
+      if (patchAds && (adCleaningMode == AdCleaningMode.AD_SHIELD || profile != "safe") && scan.manifestHits.isNotEmpty()) {
         progress(70, "Manifest reklam izinleri ve metadata kayıtları denetleniyor")
         val manifestIn = File(work, "AndroidManifest-input.bin")
         ZipFile(working).use { archive ->
@@ -163,8 +171,8 @@ class CleanerEngine(private val context: Context) {
         }
       }
 
-      if (patchAds && profile == "deep") progress(78, "Kapsamlı profil için doğrulanmış asset ve kütüphaneler denetleniyor")
-      val removed = if (patchAds && profile == "deep") deepRemovals(working, selectedProfiles) else emptySet()
+      if (patchAds && profile == "deep" && adCleaningMode == AdCleaningMode.LEGACY) progress(78, "Kapsamlı profil için doğrulanmış asset ve kütüphaneler denetleniyor")
+      val removed = if (patchAds && profile == "deep" && adCleaningMode == AdCleaningMode.LEGACY) deepRemovals(working, selectedProfiles) else emptySet()
       val unsigned = if (replacements.isNotEmpty() || removed.isNotEmpty()) {
         progress(82, "Değişiklikler yeni APK paketine yazılıyor")
         File(work, "unsigned.apk").also { rewriteApk(working, it, replacements, removed) }
@@ -173,6 +181,7 @@ class CleanerEngine(private val context: Context) {
       val base = safeName(sourceName.substringBeforeLast('.', sourceName))
       val label = when {
         sourceIsSplit && !patchAds && !stripDebug -> "universal"
+        patchAds && adCleaningMode == AdCleaningMode.AD_SHIELD -> "ad-shield"
         patchAds -> "clean-$profile"
         else -> "optimized"
       }

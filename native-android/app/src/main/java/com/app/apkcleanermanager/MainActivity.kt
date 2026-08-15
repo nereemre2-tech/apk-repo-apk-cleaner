@@ -2,13 +2,16 @@ package com.app.apkcleanermanager
 
 import android.app.Activity
 import android.app.AlertDialog
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
+import android.os.Build
 import android.os.Environment
 import android.view.Gravity
 import android.view.View
@@ -24,6 +27,8 @@ import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.content.FileProvider
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -33,6 +38,7 @@ import java.util.concurrent.Executors
 class MainActivity : Activity() {
   private val engine by lazy { CleanerEngine(this) }
   private val history by lazy { ProcessingHistory(this) }
+  private val notifier by lazy { ProcessingNotifier(this) }
   private val worker = Executors.newSingleThreadExecutor()
   private lateinit var container: LinearLayout
   private var selectedFile: File? = null
@@ -42,7 +48,9 @@ class MainActivity : Activity() {
   private var selectedProfile = "balanced"
   private var patchAds = true
   private var stripDebug = false
+  private var adCleaningMode = AdCleaningMode.LEGACY
   private var busy = false
+  private var appVisible = false
   private var cancellationRequested = false
   private var processingPercent = 0
   private var processingMessage = "Yerel işlem motoru hazırlanıyor"
@@ -56,7 +64,19 @@ class MainActivity : Activity() {
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
+    notifier.createChannel()
+    requestNotificationPermission()
     render()
+  }
+
+  override fun onResume() {
+    super.onResume()
+    appVisible = true
+  }
+
+  override fun onPause() {
+    appVisible = false
+    super.onPause()
   }
 
   override fun onDestroy() {
@@ -159,7 +179,9 @@ class MainActivity : Activity() {
       addView(label(if (report.split) "Split paket bulundu" else "Standart APK bulundu", 15, COLOR_INK, true))
       addView(label(if (report.split) "${report.modules.size} modül tek APK çıktısı için birleştirilecektir. Modül seçimi otomatik uygulanır." else "Paket yerel arşiv yapısı üzerinden güvenli biçimde tarandı.", 12, COLOR_MUTED))
     }
-    operation("✦", "Reklam izlerini temizle", "Doğrulanmış DEX çağrılarını ve uygun manifest kayıtlarını düzenler.", patchAds, report.detections.isNotEmpty()) { patchAds = true; render() }
+    heading("Reklam temizleme motoru", 20, COLOR_INK)
+    operation("◈", "AdShield — yeni korumalı mod", "Çifte kanıtla doğrulanan ağları yalnızca güvenli DEX ve manifest kurallarıyla nötralize eder; asset/kütüphane silmez.", patchAds && adCleaningMode == AdCleaningMode.AD_SHIELD, report.detections.isNotEmpty()) { patchAds = true; adCleaningMode = AdCleaningMode.AD_SHIELD; render() }
+    operation("✦", "Klasik reklam temizleme", "Mevcut DEX, manifest ve seçilen kapsam profiliyle klasik temizleme motorunu kullanır.", patchAds && adCleaningMode == AdCleaningMode.LEGACY, report.detections.isNotEmpty()) { patchAds = true; adCleaningMode = AdCleaningMode.LEGACY; render() }
     if (report.split) operation("⇄", "Tek APK oluştur", "Split modülleri tek kurulabilir APK’da birleştirir; reklam yaması isteğe bağlıdır.", !patchAds, true) { patchAds = false; render() }
     if (report.detections.isEmpty()) {
       card(COLOR_NOTICE, 15) {
@@ -184,7 +206,7 @@ class MainActivity : Activity() {
     add(profiles)
     option(if (report.split) "Dönüştürme sırasında reklam yaması" else "Reklam yaması", "Bilinen ağ referanslarında güvenli DEX yaması uygular.", patchAds, report.detections.isNotEmpty()) { patchAds = it }
     option("DEX hata ayıklama verisi", "Kaynak, satır ve yerel değişken kayıtlarını temizler.", stripDebug, true) { stripDebug = it }
-    val caption = if (report.split && !patchAds && !stripDebug) "APK oluşturmayı başlat" else if (patchAds) "Temizlemeyi başlat" else "Paketi yeniden imzala"
+    val caption = if (report.split && !patchAds && !stripDebug) "APK oluşturmayı başlat" else if (patchAds && adCleaningMode == AdCleaningMode.AD_SHIELD) "AdShield işlemini başlat" else if (patchAds) "Temizlemeyi başlat" else "Paketi yeniden imzala"
     actionButton(caption, COLOR_LIME, !patchAds || report.detections.isNotEmpty()) { startProcessing() }
   }
 
@@ -326,13 +348,14 @@ class MainActivity : Activity() {
     render()
     worker.execute {
       try {
-        val output = engine.process(file, sourceName, selectedProfile, patchAds, stripDebug) { update ->
+        val output = engine.process(file, sourceName, selectedProfile, patchAds, stripDebug, adCleaningMode) { update ->
           runOnUiThread { updateProcessingViews(update.percent, update.message) }
         }
         runOnUiThread {
           processing = output
           busy = false
-          recordHistory("Tamamlandı", "${output.dexPatched} DEX · ${output.manifestPatched} manifest · ${output.removedFiles} dosya değişikliği", output.output)
+          recordHistory("Tamamlandı", "${adCleaningMode.label()} · ${output.dexPatched} DEX · ${output.manifestPatched} manifest · ${output.removedFiles} dosya değişikliği", output.output)
+          notifyIfBackground { notifier.completed(sourceName, output.output.name) }
           render()
         }
       } catch (error: Throwable) {
@@ -341,11 +364,13 @@ class MainActivity : Activity() {
           if (engine.wasCancellationRequested()) {
             processingLogs += "■ İşlem kullanıcı tarafından iptal edildi; geçici dosyalar temizlendi"
             recordHistory("İptal edildi", "Çıktı oluşturulmadı; orijinal paket korundu.", null)
+            notifyIfBackground { notifier.cancelled(sourceName) }
             render()
             showError("İşlem iptal edildi", "Çıktı APK oluşturulmadı. Orijinal paket korunmuştur.")
           } else {
             processingLogs += "■ Hata: ${error.message ?: "Bilinmeyen hata"}"
             recordHistory("Hata", error.message ?: "Bilinmeyen hata", null)
+            notifyIfBackground { notifier.failed(sourceName) }
             render()
             showError("İşlem tamamlanamadı", error.message)
           }
@@ -437,6 +462,16 @@ class MainActivity : Activity() {
 
   private fun formatTime(timestamp: Long): String = SimpleDateFormat("d MMM HH:mm", Locale("tr", "TR")).format(Date(timestamp))
 
+  private fun requestNotificationPermission() {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+      ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), REQUEST_NOTIFICATIONS)
+    }
+  }
+
+  private fun notifyIfBackground(action: () -> Unit) { if (!appVisible) action() }
+
+  private fun AdCleaningMode.label(): String = if (this == AdCleaningMode.AD_SHIELD) "AdShield" else "Klasik motor"
+
   private fun queryName(uri: Uri): String? = contentResolver.query(uri, null, null, null, null)?.use { cursor -> val index = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME); if (cursor.moveToFirst() && index >= 0) cursor.getString(index) else null }
   private fun option(title: String, detail: String, value: Boolean, enabled: Boolean, onChange: (Boolean) -> Unit) {
     gap(9)
@@ -474,6 +509,7 @@ class MainActivity : Activity() {
 
   companion object {
     private const val REQUEST_PICK = 1001
+    private const val REQUEST_NOTIFICATIONS = 1002
     private val COLOR_DARK = Color.rgb(13, 21, 21)
     private val COLOR_BACKGROUND = Color.rgb(8, 14, 12)
     private val COLOR_SURFACE = Color.rgb(16, 24, 21)

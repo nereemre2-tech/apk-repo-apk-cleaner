@@ -28,3 +28,7 @@
 - [x] Tamamlanan, iptal edilen ve hata veren işlemler için kalıcı geçmiş kaydı ekleme
 - [x] Geçmiş ekranında işlem günlüklerini görüntüleme ve TXT olarak dışa aktarma eylemi ekleme
 - [x] Geçmiş yönetimini üretim imzalı APK’da doğrulayıp GitHub sürümünü güncelleme
+- [x] İşlem tamamlanması, iptal ve hata sonuçları için yerel cihaz bildirimi ekleme
+- [x] Mevcut araçlardan ayrı seçilebilen korumalı reklam temizleme modu tasarlama
+- [x] Yeni modun koruma kurallarını, işlemini ve kullanıcı arayüzü seçimini uygulama
+- [x] Bildirim ve reklam temizleme modunu üretim APK’da doğrulayıp GitHub sürümünü güncelleme

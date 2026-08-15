@@ -4,7 +4,7 @@
 
 Güncel ARM64 sürümünü [GitHub sürümler sayfasından](https://github.com/nereemre2-tech/apk-repo-apk-cleaner/releases/latest) indirebilirsiniz. Doğrudan dosya bağlantısı, sürüm yayınlandıktan sonra aşağıdaki biçimde çalışır:
 
-`https://github.com/nereemre2-tech/apk-repo-apk-cleaner/releases/latest/download/APK-Cleaner-Manager-v1.4.0-arm64-release.apk`
+`https://github.com/nereemre2-tech/apk-repo-apk-cleaner/releases/latest/download/APK-Cleaner-Manager-v1.5.0-arm64-release.apk`
 
 Bu APK, **ARM64-v8a** mimarisine sahip Android cihazlar içindir. Android 8.0 (API 26) ve daha yeni sürümler gerekir.
 
@@ -16,6 +16,7 @@ Bu APK, **ARM64-v8a** mimarisine sahip Android cihazlar içindir. Android 8.0 (A
 4. Uygulamada **Dosya seç** eylemiyle APK, APKS, APKM veya XAPK paketinizi seçin. Analiz tamamlandığında işlem türünü ve profilini belirleyin.
 5. İşlem ekranında canlı yüzdeyi ve aşama günlüğünü izleyin. Gerekirse **İşlemi iptal et** düğmesiyle aktif yerel araç sürecini durdurun. Tamamlandığında oluşan APK’yı sistem paylaşım ekranından kaydedin veya paylaşın; işlem veya iptal günlüğünü TXT dosyası olarak dışa aktarabilirsiniz.
 6. Üst çubuktaki **Geçmiş** düğmesiyle son 25 tamamlanan, iptal edilen veya hata veren işi; özetini, günlüğünü ve mevcutsa APK çıktısını yeniden paylaşabilirsiniz.
+7. İşlem başladığında uygulamayı arka plana alabilirsiniz. Android 13 ve üzeri sürümlerde bildirim iznini verdiyseniz işlem tamamlandığında, iptal edildiğinde veya hata ile bittiğinde cihazınıza yerel bildirim gönderilir.
 
 > Paket çıktıları yerel sertifikayla yeniden imzalanır. Bu nedenle mağazadan yüklenen uygulamanın mevcut sürümünün üzerine doğrudan kurulum mümkün olmayabilir; önce eski sürümü kaldırmanız gerekebilir.
 
